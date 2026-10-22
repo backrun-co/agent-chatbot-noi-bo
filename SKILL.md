@@ -1,9 +1,9 @@
 ---
-name: document-chatbot-builder
+name: agent-chatbot-noi-bo
 description: Build, customize, run, explain, and publish a polished Streamlit chatbot that answers only from uploaded PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown, or HTML documents and cites its sources. Use when a user wants a local document Q&A/RAG chatbot, wants to improve this chatbot's interface, or asks to share or deploy it. Do not use for general-purpose chatbots that are not grounded in user documents.
 ---
 
-# Document Chatbot Builder
+# Agent Chatbot Noi Bo
 
 Create a working chatbot, not merely a tutorial. Automate safe local setup and validation; ask the user only for decisions, credentials, permissions, or actions that cannot be completed on their behalf.
 
@@ -85,7 +85,7 @@ Do not claim deployment succeeded until the live page has loaded. Do not make a 
 
 ## Cross-client compatibility
 
-This skill follows the Agent Skills folder format and must work from either `~/.codex/skills/document-chatbot-builder` or `~/.claude/skills/document-chatbot-builder`. Keep the core workflow in this file and portable Python scripts. `agents/openai.yaml` is optional Codex UI metadata; Claude Code can ignore it.
+This skill follows the Agent Skills folder format and must work from either `~/.codex/skills/agent-chatbot-noi-bo` or `~/.claude/skills/agent-chatbot-noi-bo`. Keep the core workflow in this file and portable Python scripts. `agents/openai.yaml` is optional Codex UI metadata; Claude Code can ignore it.
 
 Read `references/compatibility.md` when installation paths, shell commands, or tool availability differ between Codex and Claude Code.
 

@@ -1,4 +1,4 @@
-# Document Chatbot Builder Skill
+# Agent Chatbot Nội Bộ
 
 Skill dành cho Codex và Claude Code, giúp agent tự tạo, cài đặt, tùy chỉnh, hướng dẫn và publish một chatbot hỏi đáp dựa trên tài liệu.
 
@@ -9,13 +9,13 @@ Chatbot mẫu hỗ trợ PDF, Word, PowerPoint, Excel, CSV, TXT, Markdown và HT
 macOS/Linux:
 
 ```bash
-git clone https://github.com/backrun-co/document-chatbot-builder.git ~/.codex/skills/document-chatbot-builder
+git clone https://github.com/backrun-co/agent-chatbot-noi-bo.git ~/.codex/skills/agent-chatbot-noi-bo
 ```
 
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/backrun-co/document-chatbot-builder.git "$env:USERPROFILE\.codex\skills\document-chatbot-builder"
+git clone https://github.com/backrun-co/agent-chatbot-noi-bo.git "$env:USERPROFILE\.codex\skills\agent-chatbot-noi-bo"
 ```
 
 ## Cài cho Claude Code
@@ -23,13 +23,13 @@ git clone https://github.com/backrun-co/document-chatbot-builder.git "$env:USERP
 macOS/Linux:
 
 ```bash
-git clone https://github.com/backrun-co/document-chatbot-builder.git ~/.claude/skills/document-chatbot-builder
+git clone https://github.com/backrun-co/agent-chatbot-noi-bo.git ~/.claude/skills/agent-chatbot-noi-bo
 ```
 
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/backrun-co/document-chatbot-builder.git "$env:USERPROFILE\.claude\skills\document-chatbot-builder"
+git clone https://github.com/backrun-co/agent-chatbot-noi-bo.git "$env:USERPROFILE\.claude\skills\agent-chatbot-noi-bo"
 ```
 
 Khởi động lại phiên agent nếu skill chưa xuất hiện ngay.
@@ -37,7 +37,7 @@ Khởi động lại phiên agent nếu skill chưa xuất hiện ngay.
 ## Cách yêu cầu agent
 
 ```text
-Hãy dùng document-chatbot-builder để tạo cho tôi một chatbot hỏi đáp tài liệu, cài đặt đầy đủ và mở bản local cho tôi xem.
+Hãy dùng agent-chatbot-noi-bo để tạo cho tôi một chatbot hỏi đáp tài liệu, cài đặt đầy đủ và mở bản local cho tôi xem.
 ```
 
 Sau khi duyệt:

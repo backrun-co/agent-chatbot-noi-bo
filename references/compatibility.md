@@ -6,8 +6,8 @@ The repository uses the portable Agent Skills layout: a root `SKILL.md`, optiona
 
 Install into either:
 
-- user scope: `~/.codex/skills/document-chatbot-builder`
-- project scope: `.codex/skills/document-chatbot-builder`
+- user scope: `~/.codex/skills/agent-chatbot-noi-bo`
+- project scope: `.codex/skills/agent-chatbot-noi-bo`
 
 Codex may read `agents/openai.yaml` for UI metadata and automatic invocation. Restart or reload the client after installation when the skill is not discovered immediately.
 
@@ -15,8 +15,8 @@ Codex may read `agents/openai.yaml` for UI metadata and automatic invocation. Re
 
 Install into either:
 
-- user scope: `~/.claude/skills/document-chatbot-builder`
-- project scope: `.claude/skills/document-chatbot-builder`
+- user scope: `~/.claude/skills/agent-chatbot-noi-bo`
+- project scope: `.claude/skills/agent-chatbot-noi-bo`
 
 Claude Code uses the same `SKILL.md` and ignores Codex-specific `agents/openai.yaml` metadata. Restart the session or reload skills after installation when needed.
 
