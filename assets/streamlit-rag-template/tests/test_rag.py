@@ -1,10 +1,18 @@
-import numpy as np
 from docx import Document
 from io import BytesIO
 from openpyxl import Workbook
 from pptx import Presentation
 
-from rag import Chunk, build_context, extract_document, normalize_text, split_text
+from rag import (
+    Chunk,
+    build_context,
+    create_index,
+    extract_document,
+    normalize_text,
+    retrieve,
+    split_text,
+    tokenize,
+)
 
 
 def test_normalize_text_keeps_paragraphs():
@@ -88,6 +96,22 @@ def test_extract_xlsx_document():
     assert summary == "1 sheet"
 
 
-def test_embedding_shape_example():
-    matrix = np.empty((0, 0), dtype=np.float32)
-    assert matrix.size == 0
+def test_tokenize_supports_vietnamese_text():
+    assert tokenize("Chính sách nghỉ phép!") == ["chính", "sách", "nghỉ", "phép"]
+
+
+def test_local_index_retrieves_relevant_chunk():
+    chunks = [
+        Chunk("Nhân viên được nghỉ phép 12 ngày mỗi năm.", "noi-quy.pdf", 2, 0),
+        Chunk("Phòng họp nằm ở tầng 5.", "van-phong.pdf", 1, 1),
+    ]
+    index = create_index([chunk.text for chunk in chunks])
+    results = retrieve("được nghỉ phép bao nhiêu ngày", chunks, index, top_k=1)
+    assert results[0].chunk.filename == "noi-quy.pdf"
+    assert results[0].score > 0
+
+
+def test_local_index_returns_empty_without_term_overlap():
+    chunks = [Chunk("Quy định chấm công.", "noi-quy.pdf", 1, 0)]
+    index = create_index([chunk.text for chunk in chunks])
+    assert retrieve("doanh thu quý bốn", chunks, index) == []

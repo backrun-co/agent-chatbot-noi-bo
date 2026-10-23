@@ -5,12 +5,18 @@ from __future__ import annotations
 import html
 import os
 
-import numpy as np
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from rag import Chunk, NOT_FOUND_ANSWER, answer_question, create_embeddings, extract_document, retrieve
+from chatgpt_auth import (
+    create_client,
+    get_session,
+    list_models,
+    sign_in,
+    sign_out,
+)
+from rag import Chunk, NOT_FOUND_ANSWER, answer_question, create_index, extract_document, retrieve
 
 
 load_dotenv()
@@ -18,8 +24,10 @@ load_dotenv()
 MAX_FILES = 5
 MAX_FILE_SIZE = 10 * 1024 * 1024
 SUPPORTED_UPLOAD_TYPES = ["pdf", "docx", "pptx", "xlsx", "csv", "txt", "md", "html", "htm"]
-CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4.1-mini")
-EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+CHATBOT_MODE = os.getenv("CHATBOT_MODE", "local").strip().lower()
+HOSTED_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4.1-mini")
+if CHATBOT_MODE not in {"local", "hosted"}:
+    CHATBOT_MODE = "local"
 
 st.set_page_config(
     page_title="Trợ lý tài liệu nội bộ",
@@ -266,10 +274,13 @@ st.markdown(
 def init_state() -> None:
     defaults = {
         "chunks": [],
-        "embeddings": np.empty((0, 0), dtype=np.float32),
+        "index": None,
         "messages": [],
         "documents": [],
         "index_signature": None,
+        "plan_models": [],
+        "plan_model": None,
+        "auth_error": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -278,13 +289,13 @@ def init_state() -> None:
 
 def clear_knowledge() -> None:
     st.session_state.chunks = []
-    st.session_state.embeddings = np.empty((0, 0), dtype=np.float32)
+    st.session_state.index = None
     st.session_state.messages = []
     st.session_state.documents = []
     st.session_state.index_signature = None
 
 
-def get_client() -> OpenAI | None:
+def get_hosted_client() -> OpenAI | None:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     return OpenAI(api_key=api_key) if api_key else None
 
@@ -314,14 +325,83 @@ def show_sources(sources: list[dict]) -> None:
 
 
 init_state()
-client = get_client()
+client: OpenAI | None = None
+active_model: str | None = None
+local_session = None
+
+if CHATBOT_MODE == "local":
+    try:
+        local_session = get_session()
+    except Exception as error:
+        st.session_state.plan_models = []
+        st.session_state.plan_model = None
+        st.session_state.auth_error = str(error)
+else:
+    client = get_hosted_client()
+    active_model = HOSTED_CHAT_MODEL
 
 with st.sidebar:
     st.markdown(
         '<div class="side-brand"><span class="brand-mark">◈</span><span class="brand-name">DocQuery</span></div>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="sidebar-label">Kho tài liệu</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-label">Kết nối AI</div>', unsafe_allow_html=True)
+    if CHATBOT_MODE == "local":
+        if local_session is None:
+            st.info("Chế độ local · dùng hạn mức ChatGPT/Codex, không cần API key.")
+            if st.session_state.get("auth_error"):
+                st.warning(st.session_state.auth_error)
+            if st.button("Continue with ChatGPT", type="primary", use_container_width=True):
+                with st.spinner("Đang mở trang đăng nhập ChatGPT…"):
+                    try:
+                        local_session = sign_in()
+                        st.session_state.plan_models = list_models(local_session)
+                        st.session_state.plan_model = None
+                        st.session_state.auth_error = None
+                        st.rerun()
+                    except Exception as error:
+                        st.session_state.auth_error = str(error)
+                        st.rerun()
+        else:
+            st.success(f"Đã kết nối · {local_session.email}")
+            try:
+                if not st.session_state.plan_models:
+                    st.session_state.plan_models = list_models(local_session)
+                choices = st.session_state.plan_models
+                if not choices:
+                    st.warning("Tài khoản chưa có model phù hợp.")
+                else:
+                    labels = {slug: label for slug, label in choices}
+                    slugs = [slug for slug, _ in choices]
+                    selected = st.session_state.plan_model
+                    if selected not in slugs:
+                        selected = slugs[0]
+                    active_model = st.selectbox(
+                        "Model ChatGPT",
+                        slugs,
+                        index=slugs.index(selected),
+                        format_func=lambda slug: labels[slug],
+                    )
+                    st.session_state.plan_model = active_model
+                    client = create_client(local_session)
+            except Exception as error:
+                st.warning(f"Không tải được model: {error}")
+            if st.button("Ngắt kết nối ChatGPT", use_container_width=True):
+                sign_out()
+                st.session_state.plan_models = []
+                st.session_state.plan_model = None
+                st.rerun()
+    else:
+        st.caption(f"Chế độ publish · {HOSTED_CHAT_MODEL}")
+        if client is None:
+            st.warning("Chưa có OPENAI_API_KEY trong môi trường hoặc Streamlit Secrets.")
+        else:
+            st.success("API key đã được cấu hình an toàn.")
+
+    st.markdown(
+        '<div class="sidebar-label" style="margin-top:1.4rem">Kho tài liệu</div>',
+        unsafe_allow_html=True,
+    )
     uploaded_files = st.file_uploader(
         "Tải tài liệu",
         type=SUPPORTED_UPLOAD_TYPES,
@@ -329,19 +409,14 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    if not client:
-        st.warning(
-            "Chưa có OPENAI_API_KEY. Chạy local: thêm key vào tệp .env. "
-            "Bản online: thêm key trong Manage app → Settings → Secrets."
-        )
-    else:
-        st.markdown(
-            '<div class="privacy-note">● Nội dung tệp được gửi tới OpenAI API để lập chỉ mục và trả lời.</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        '<div class="privacy-note">● Chỉ mục được tạo trên máy. Chỉ các đoạn liên quan '
+        'được gửi tới model để tạo câu trả lời.</div>',
+        unsafe_allow_html=True,
+    )
 
     signature = upload_signature(uploaded_files)
-    can_index = bool(uploaded_files) and client is not None
+    can_index = bool(uploaded_files)
     if st.button("Đọc và lập chỉ mục", type="primary", use_container_width=True, disabled=not can_index):
         if len(uploaded_files) > MAX_FILES:
             st.error(f"Chỉ được tải tối đa {MAX_FILES} tệp.")
@@ -362,13 +437,9 @@ with st.sidebar:
                     if not all_chunks:
                         st.error("Không trích được văn bản. Tệp có thể rỗng, bị hỏng hoặc là PDF scan cần OCR.")
                     else:
-                        embeddings = create_embeddings(
-                            client,
-                            [chunk.text for chunk in all_chunks],
-                            EMBEDDING_MODEL,
-                        )
+                        lexical_index = create_index([chunk.text for chunk in all_chunks])
                         st.session_state.chunks = all_chunks
-                        st.session_state.embeddings = embeddings
+                        st.session_state.index = lexical_index
                         st.session_state.documents = documents
                         st.session_state.messages = []
                         st.session_state.index_signature = signature
@@ -426,7 +497,7 @@ for message in st.session_state.messages:
 
 question = st.chat_input(
     "Hỏi về chính sách, quy trình, số liệu trong tài liệu…",
-    disabled=not bool(st.session_state.chunks) or client is None,
+    disabled=not bool(st.session_state.chunks) or client is None or active_model is None,
 )
 
 if question:
@@ -438,20 +509,17 @@ if question:
         with st.spinner("Đang tìm trong tài liệu…"):
             try:
                 results = retrieve(
-                    client,
                     question,
                     st.session_state.chunks,
-                    st.session_state.embeddings,
-                    EMBEDDING_MODEL,
+                    st.session_state.index,
                     top_k=4,
                 )
 
-                relevant = results if results and results[0].score >= 0.30 else []
                 answer = answer_question(
                     client,
                     question,
-                    relevant,
-                    CHAT_MODEL,
+                    results,
+                    active_model,
                     recent_messages=st.session_state.messages[:-1],
                 )
                 sources = []
@@ -463,7 +531,7 @@ if question:
                             "text": item.chunk.text,
                             "score": item.score,
                         }
-                        for item in relevant
+                        for item in results
                     ]
                 st.markdown(answer)
                 show_sources(sources)

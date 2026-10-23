@@ -19,15 +19,17 @@ Open `http://localhost:8501` if the browser does not open automatically.
 ## Use the chatbot
 
 1. Open the left sidebar with the `»` button.
-2. Upload one or more supported documents.
-3. Select **Đọc và lập chỉ mục** and wait for the ready status.
-4. Ask a specific question in the chat input.
-5. Open the source section below the answer to verify the supporting excerpt.
-6. Select **Xóa phiên làm việc** before starting with an unrelated document set.
+2. In local mode, select **Continue with ChatGPT** and approve plan usage in the browser.
+3. Upload one or more supported documents.
+4. Select **Đọc và lập chỉ mục** and wait for the ready status.
+5. Ask a specific question in the chat input.
+6. Open the source section below the answer to verify the supporting excerpt.
+7. Select **Xóa phiên làm việc** before starting with an unrelated document set.
 
 ## Common issues
 
-- **Missing API key:** add `OPENAI_API_KEY` to the local environment or `.env`; on Streamlit Cloud use App settings → Secrets.
+- **Local sign-in unavailable:** confirm the user has an eligible ChatGPT plan, complete browser consent, and keep the local callback on `127.0.0.1`.
+- **Published app missing a key:** set `CHATBOT_MODE="hosted"` and add `OPENAI_API_KEY` in Streamlit App settings → Secrets.
 - **Index button disabled:** select at least one supported file first.
 - **No answer found:** ask a more specific question or confirm the information exists in the uploaded files.
 - **Scanned PDF:** the basic template does not include OCR; convert it to searchable text or add an OCR provider.

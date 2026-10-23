@@ -69,7 +69,14 @@ def main() -> int:
 
     target = args.target.expanduser().resolve()
     ensure_empty_target(target)
-    shutil.copytree(template, target, dirs_exist_ok=True)
+    shutil.copytree(
+        template,
+        target,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(
+            ".venv", "__pycache__", ".pytest_cache", ".pytest-tmp", "*.pyc"
+        ),
+    )
     print(f"Copied chatbot template to {target}")
 
     os.environ.setdefault("PYTHONUTF8", "1")
@@ -95,7 +102,8 @@ def main() -> int:
         )
 
     print("\nProject is ready.")
-    print("Next: configure OPENAI_API_KEY, run scripts/check_project.py, then start Streamlit.")
+    print("Next: run scripts/check_project.py, then start Streamlit.")
+    print("Local mode uses Continue with ChatGPT; hosted mode uses OPENAI_API_KEY.")
     return 0
 
 

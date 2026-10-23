@@ -4,6 +4,11 @@ Skill dành cho Codex và Claude Code, giúp agent tự tạo, cài đặt, tùy
 
 Chatbot mẫu hỗ trợ PDF, Word, PowerPoint, Excel, CSV, TXT, Markdown và HTML; chỉ trả lời theo tài liệu và hiển thị nguồn.
 
+## Hai chế độ sử dụng
+
+- **Local, không API key:** người dùng chọn **Continue with ChatGPT** và sử dụng hạn mức ChatGPT/Codex của chính họ. Chỉ mục tài liệu được tạo trên máy.
+- **Publish Streamlit:** ứng dụng dùng `OPENAI_API_KEY` được lưu trong Streamlit Secrets; không đưa key vào mã nguồn.
+
 ## Cài cho Codex
 
 macOS/Linux:
@@ -60,7 +65,9 @@ Script sẽ sao chép template, tạo `.venv` và cài các thư viện cần th
 
 - Không commit `.env` hoặc `.streamlit/secrets.toml`.
 - Tài liệu upload được giữ trong phiên làm việc theo mặc định.
-- Nội dung tài liệu được gửi tới OpenAI API để tạo embedding và câu trả lời.
+- Chỉ mục tìm kiếm được tạo local, không gọi Embeddings API.
+- Chỉ các đoạn liên quan được gửi tới model để tạo câu trả lời.
+- Token ChatGPT local được lưu ngoài project và không được lấy từ bộ nhớ đăng nhập Codex.
 
 ## Giấy phép
 

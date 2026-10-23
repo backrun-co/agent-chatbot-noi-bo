@@ -7,8 +7,8 @@ Read this reference when modifying document parsing, retrieval, model calls, gro
 1. Streamlit receives one or more uploaded files.
 2. `rag.py` extracts text and traceable metadata for each supported format.
 3. Text is normalized and split into overlapping chunks.
-4. OpenAI embeddings are created for the chunks and kept in the Streamlit session.
-5. A question is embedded and compared against chunk vectors with cosine similarity.
+4. A lightweight BM25 index is created locally and kept in the Streamlit session.
+5. A question is matched against that local index; no document text is sent to an embeddings endpoint.
 6. Only the best relevant chunks are sent to the chat model as context.
 7. The prompt requires an answer grounded in that context and a clear not-found response when evidence is insufficient.
 8. `app.py` renders the answer and expandable source excerpts.
@@ -35,15 +35,17 @@ When adding a format, preserve a human-readable locator such as page, sheet, sli
 - Do not fabricate filenames, page numbers, quotations, or citations.
 - Keep source excerpts short enough to scan and long enough to verify the answer.
 
-## Model configuration
+## Authentication and model configuration
 
 The template reads:
 
+- `CHATBOT_MODE`, default `local`;
 - `OPENAI_API_KEY`
 - `OPENAI_CHAT_MODEL`, default `gpt-4.1-mini`
-- `OPENAI_EMBEDDING_MODEL`, default `text-embedding-3-small`
 
-Local values may come from the process environment or `.env`. Hosted values belong in the provider's secret manager. Never commit either `.env` or `.streamlit/secrets.toml`.
+In local mode, the user signs in through ChatGPT OAuth and the app lists models available to that account. Credentials live in the user's home directory, outside the project. In hosted mode, values belong in the provider's secret manager. Never commit `.env`, `.streamlit/secrets.toml`, or OAuth profile files.
+
+Both modes use the Responses API with `store=false` and `stream=true`. The local OAuth flow follows the additional constraints in `references/local-chatgpt.md`.
 
 ## UI structure
 

@@ -1,6 +1,6 @@
 ---
 name: agent-chatbot-noi-bo
-description: Build, customize, run, explain, and publish a polished Streamlit chatbot that answers only from uploaded PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown, or HTML documents and cites its sources. Use when a user wants a local document Q&A/RAG chatbot, wants to improve this chatbot's interface, or asks to share or deploy it. Do not use for general-purpose chatbots that are not grounded in user documents.
+description: Build, customize, run, explain, and publish a polished Streamlit document chatbot with cited sources. Supports local ChatGPT/Codex-plan sign-in without an API key and hosted deployment with a server-side OpenAI API key. Use for document Q&A/RAG chatbot creation, UI changes, sharing, or deployment; not for general-purpose chatbots unrelated to uploaded documents.
 ---
 
 # Agent Chatbot Noi Bo
@@ -9,6 +9,8 @@ Create a working chatbot, not merely a tutorial. Automate safe local setup and v
 
 ## Choose the operating mode
 
+- **Local mode (default):** set `CHATBOT_MODE=local`. Use **Continue with ChatGPT** and the user's eligible ChatGPT/Codex plan; do not request an API key. Retrieval stays local.
+- **Hosted mode:** set `CHATBOT_MODE=hosted`. Use `OPENAI_API_KEY` from the hosting provider's secret manager. This is the default when the user asks to publish on Streamlit Community Cloud.
 - **New chatbot:** scaffold from `assets/streamlit-rag-template/`, install dependencies, configure, test, and open a local preview.
 - **Existing chatbot:** inspect it first, preserve working features and unrelated user changes, then make the requested edits.
 - **Customize UI:** keep the dark acid-green design by default, but adapt branding, copy, layout, animation, and supported formats to the user's request. Offer concise customization ideas after the first working version.
@@ -20,10 +22,10 @@ Create a working chatbot, not merely a tutorial. Automate safe local setup and v
 2. Run `python scripts/bootstrap.py <target-directory>`. On Windows, use `py -3.12` or an available Python 3.11+ interpreter when `python` is unavailable.
 3. If Python 3.11+ or Git is missing, install it using the platform's normal package manager when permitted. Ask only when administrator approval or an interactive installer is required.
 4. Let the bootstrap script copy the template, create `.venv`, upgrade pip, and install `requirements.txt`. Do not recreate these steps manually unless the script reports a concrete failure.
-5. Configure credentials without exposing them:
-   - Reuse an existing `OPENAI_API_KEY` environment variable when present.
-   - Otherwise ask the user to enter a key locally or in the hosting provider's secret manager. Never print, commit, or place the key in a command argument or public file.
-   - If the user explicitly wants no API key, explain the quality trade-off and offer a deterministic retrieval-only mode; do not silently claim it is equivalent to an LLM answer.
+5. Select authentication from the intended runtime:
+   - For local use, keep `CHATBOT_MODE=local`, start the app, and let the user complete **Continue with ChatGPT** in their browser. Read `references/local-chatgpt.md` before modifying this flow.
+   - For hosted use, set `CHATBOT_MODE=hosted` and load `OPENAI_API_KEY` only from an environment variable or provider secret manager.
+   - Never read or copy Codex/ChatGPT credential caches, never log OAuth tokens, and never commit credentials.
 6. Run `python scripts/check_project.py <target-directory>` and the template tests. Fix failures before previewing.
 7. Start Streamlit from the project's virtual environment and open the local URL. Verify upload, indexing, chat, source display, the no-answer behavior, responsive layout, and sidebar controls.
 8. Give the user the short usage guide from `references/operator-guide.md` and offer targeted UI customization.
@@ -33,12 +35,12 @@ Create a working chatbot, not merely a tutorial. Automate safe local setup and v
 The finished chatbot must:
 
 - accept PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown, and HTML by default;
-- extract text, split it into traceable chunks, create an in-memory index, and retrieve relevant passages;
+- extract text, split it into traceable chunks, create an in-memory local index, and retrieve relevant passages without an embeddings API;
 - answer only from uploaded content;
 - show file/page/sheet/slide or section evidence used for the answer;
 - explicitly say when the documents do not contain the answer;
 - avoid persisting uploaded document contents unless the user asks for storage;
-- keep secrets outside Git and display a clear disclosure when document content is sent to an external model API;
+- keep secrets outside Git and disclose that only retrieved passages are sent to the selected model;
 - remain understandable to a non-programmer.
 
 Read `references/architecture.md` when changing retrieval, file parsing, models, answer grounding, or source rendering.
@@ -77,7 +79,7 @@ Only enter this flow after the user asks to publish or share.
 3. Run tests and inspect the exact Git diff.
 4. Create or reuse the requested GitHub repository, commit, and push. If visibility is unspecified, explain that public sharing normally requires a public repository and obtain a choice before changing an existing private repository's visibility.
 5. Prefer Streamlit Community Cloud for this Python/Streamlit template. Complete repository selection, branch, entry point, and deployment through available tools.
-6. Put `OPENAI_API_KEY` in Streamlit Secrets. If secure automated transfer is unavailable, open the exact Secrets screen and ask the user to enter only that value.
+6. Set `CHATBOT_MODE="hosted"` and put `OPENAI_API_KEY` in Streamlit Secrets. If secure automated transfer is unavailable, open the exact Secrets screen and ask the user to enter only those values.
 7. Wait for the build to finish, inspect logs, open the deployed URL, and verify the app no longer reports a missing key.
 8. Return the live URL, repository URL, current privacy state, and any remaining quota or hosting limitations.
 
@@ -91,4 +93,4 @@ Read `references/compatibility.md` when installation paths, shell commands, or t
 
 ## Completion criteria
 
-For local creation, finish only when setup, tests, and a browser preview succeed and the user has basic usage instructions. For publishing, finish only when the live URL is reachable and the configured app is usable, or report the exact external action still required from the user.
+For local creation, finish only when setup, tests, browser preview, ChatGPT sign-in, and one grounded answer succeed. For publishing, finish only when the live URL is reachable and the hosted API-key mode is usable, or report the exact external action still required from the user.

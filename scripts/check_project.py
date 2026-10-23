@@ -13,6 +13,7 @@ from pathlib import Path
 
 REQUIRED_FILES = (
     "app.py",
+    "chatgpt_auth.py",
     "rag.py",
     "requirements.txt",
     "pyproject.toml",
@@ -20,6 +21,7 @@ REQUIRED_FILES = (
     ".gitignore",
     ".streamlit/config.toml",
     "tests/test_rag.py",
+    "tests/test_auth.py",
 )
 
 
@@ -44,7 +46,7 @@ def main() -> int:
         print("Missing required files:", ", ".join(missing), file=sys.stderr)
         return 1
 
-    for name in ("app.py", "rag.py", "tests/test_rag.py"):
+    for name in ("app.py", "chatgpt_auth.py", "rag.py", "tests/test_rag.py", "tests/test_auth.py"):
         source = (project / name).read_text(encoding="utf-8")
         ast.parse(source, filename=name)
     print("Python syntax: OK")
@@ -68,7 +70,7 @@ def main() -> int:
         environment = os.environ.copy()
         environment.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
         subprocess.run(
-            [str(python), "-m", "pytest", "-q"],
+            [str(python), "-m", "pytest", "-q", "--basetemp", ".pytest-tmp"],
             cwd=project,
             env=environment,
             check=True,

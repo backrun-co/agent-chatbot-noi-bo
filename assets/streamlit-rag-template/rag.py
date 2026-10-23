@@ -1,15 +1,17 @@
-"""Lõi RAG: đọc tài liệu, chia đoạn, tạo embedding, truy xuất và trả lời."""
+"""Lõi RAG: đọc tài liệu, lập chỉ mục local, truy xuất và trả lời có nguồn."""
 
 from __future__ import annotations
 
 import csv
+import math
+import re
+from collections import Counter
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
-import numpy as np
 from docx import Document as WordDocument
 from openai import OpenAI
 from openpyxl import load_workbook
@@ -46,6 +48,16 @@ class RetrievedChunk:
 
     chunk: Chunk
     score: float
+
+
+@dataclass(frozen=True)
+class LexicalIndex:
+    """Chỉ mục BM25 nhỏ gọn, chạy hoàn toàn trên máy người dùng."""
+
+    term_counts: tuple[dict[str, int], ...]
+    document_lengths: tuple[int, ...]
+    inverse_document_frequency: dict[str, float]
+    average_document_length: float
 
 
 class _HTMLTextExtractor(HTMLParser):
@@ -294,42 +306,64 @@ def extract_document(file_bytes: bytes, filename: str) -> tuple[list[Chunk], str
     return chunks, summary
 
 
-def batched(values: Sequence[str], size: int = 64) -> Iterable[Sequence[str]]:
-    for index in range(0, len(values), size):
-        yield values[index : index + size]
+def tokenize(text: str) -> list[str]:
+    """Tách từ Unicode đơn giản cho tìm kiếm tiếng Việt và tiếng Anh."""
+    return re.findall(r"[^\W_]+", text.casefold(), flags=re.UNICODE)
 
 
-def create_embeddings(client: OpenAI, texts: Sequence[str], model: str) -> np.ndarray:
-    """Tạo embedding theo lô nhỏ để xử lý được tài liệu dài."""
-    vectors: list[list[float]] = []
-    for batch in batched(texts):
-        response = client.embeddings.create(model=model, input=list(batch))
-        vectors.extend(item.embedding for item in response.data)
-
-    matrix = np.asarray(vectors, dtype=np.float32)
-    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-    return matrix / np.maximum(norms, 1e-12)
+def create_index(texts: Sequence[str]) -> LexicalIndex:
+    """Tạo chỉ mục BM25 local; nội dung tài liệu không rời khỏi máy ở bước này."""
+    counters = tuple(dict(Counter(tokenize(text))) for text in texts)
+    lengths = tuple(sum(counter.values()) for counter in counters)
+    document_count = len(counters)
+    document_frequency: Counter[str] = Counter()
+    for counter in counters:
+        document_frequency.update(counter.keys())
+    inverse_document_frequency = {
+        term: math.log(1 + (document_count - frequency + 0.5) / (frequency + 0.5))
+        for term, frequency in document_frequency.items()
+    }
+    average_length = sum(lengths) / document_count if document_count else 0.0
+    return LexicalIndex(counters, lengths, inverse_document_frequency, average_length)
 
 
 def retrieve(
-    client: OpenAI,
     question: str,
     chunks: Sequence[Chunk],
-    embeddings: np.ndarray,
-    model: str,
+    index: LexicalIndex | None,
     top_k: int = 4,
 ) -> list[RetrievedChunk]:
-    """Tìm các đoạn gần câu hỏi nhất bằng cosine similarity."""
-    if not chunks or embeddings.size == 0:
+    """Tìm các đoạn liên quan bằng BM25 mà không gọi dịch vụ embedding."""
+    if not chunks or index is None or len(index.term_counts) != len(chunks):
+        return []
+    query_terms = Counter(tokenize(question))
+    if not query_terms:
         return []
 
-    response = client.embeddings.create(model=model, input=[question])
-    query = np.asarray(response.data[0].embedding, dtype=np.float32)
-    query /= max(float(np.linalg.norm(query)), 1e-12)
-
-    scores = embeddings @ query
-    best_indices = np.argsort(scores)[::-1][: min(top_k, len(chunks))]
-    return [RetrievedChunk(chunks[i], float(scores[i])) for i in best_indices]
+    k1, b = 1.5, 0.75
+    average_length = max(index.average_document_length, 1.0)
+    scored: list[tuple[int, float]] = []
+    for position, counts in enumerate(index.term_counts):
+        document_length = index.document_lengths[position]
+        score = 0.0
+        for term, query_frequency in query_terms.items():
+            term_frequency = counts.get(term, 0)
+            if not term_frequency:
+                continue
+            denominator = term_frequency + k1 * (
+                1 - b + b * document_length / average_length
+            )
+            score += (
+                index.inverse_document_frequency.get(term, 0.0)
+                * term_frequency
+                * (k1 + 1)
+                / denominator
+                * query_frequency
+            )
+        if score > 0:
+            scored.append((position, score))
+    scored.sort(key=lambda item: item[1], reverse=True)
+    return [RetrievedChunk(chunks[position], score) for position, score in scored[:top_k]]
 
 
 def build_context(results: Sequence[RetrievedChunk]) -> str:
@@ -378,12 +412,24 @@ Hội thoại gần đây (chỉ dùng để hiểu đại từ, không xem là 
 Câu hỏi hiện tại: {question}
 """.strip()
 
-    response = client.chat.completions.create(
+    parts: list[str] = []
+    completed = False
+    with client.responses.create(
         model=model,
-        temperature=0,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
-    return response.choices[0].message.content or NOT_FOUND_ANSWER
+        instructions=system_prompt,
+        input=[{"role": "user", "content": user_prompt}],
+        store=False,
+        stream=True,
+    ) as stream:
+        for event in stream:
+            if event.type == "response.output_text.delta":
+                parts.append(event.delta)
+            elif event.type == "response.failed":
+                error = getattr(event.response, "error", None)
+                code = getattr(error, "code", "unknown_error")
+                raise RuntimeError(f"Model không thể trả lời: {code}")
+            elif event.type == "response.completed":
+                completed = True
+    if not completed:
+        raise RuntimeError("Luồng trả lời kết thúc trước response.completed.")
+    return "".join(parts).strip() or NOT_FOUND_ANSWER

@@ -14,12 +14,12 @@ This is the simplest host for the included Python application.
 6. In App settings → Secrets, add:
 
 ```toml
+CHATBOT_MODE = "hosted"
 OPENAI_API_KEY = "..."
 OPENAI_CHAT_MODEL = "gpt-4.1-mini"
-OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 ```
 
-Only the API key is required. Never put its value in Git, chat output, screenshots, logs, or shell arguments.
+Never put the API key value in Git, chat output, screenshots, logs, or shell arguments. Do not deploy with `CHATBOT_MODE="local"`: the loopback OAuth flow is intended for local/open-source runtimes, not an ordinary shared Streamlit Cloud instance.
 
 7. Wait for dependencies to install and the app to start. Inspect build logs when the page fails.
 8. Verify the missing-key warning is gone and the upload control is enabled.
